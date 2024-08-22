@@ -14,6 +14,9 @@ out/
 
 # deps
 node_modules/
+package-lock.json
+pnpm-lock.yaml
+bun.lockb
 
 # env
 .env
