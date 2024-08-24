@@ -29,4 +29,4 @@ export const insertResourceSchema = createSelectSchema(resources)
   });
 
 // Type for resources - used to type API request params and within Components
-export type NewResourceParams = z.infer<typeof insertResourceSchema>;
+export type TResource = z.infer<typeof insertResourceSchema>;
