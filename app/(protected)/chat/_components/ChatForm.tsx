@@ -27,7 +27,7 @@ export default function ChatForm({ children }: { children?: React.ReactNode }) {
   });
 
   const { isLoading, setInput, input, handleSubmit, messages } = useChat({
-    api: "/api/mistral/orchestration",
+    api: "/api/mistral/chat",
     maxToolRoundtrips: 2,
     onResponse() {
       // Scroll the document to the end
@@ -52,7 +52,10 @@ export default function ChatForm({ children }: { children?: React.ReactNode }) {
         <Form {...form}>
           <form
             id="ai-chat-form"
-            onSubmit={(e) => handleSubmit(e)}
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit(e);
+            }}
             className="fixed max-lg:left-1/2 max-lg:-translate-x-1/2 max-lg:bottom-0 bottom-12 w-full max-w-xl bg-primary shadow-2xl shadow-davy p-4 rounded-xl"
           >
             <div className="relative flex flex-row gap-1 items-end p-4 rounded-xl">

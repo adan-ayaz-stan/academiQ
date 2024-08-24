@@ -16,7 +16,7 @@ export default function HeroSection() {
             <br /> educational decisions
           </h2>
 
-          <p className="my-8 text-muted-foreground">
+          <p className="my-8 text-scampi-200">
             Discover a wealth of professor profiles, reviews, and insights on
             our comprehensive application. Easily submit your own feedback and
             track professor likability over time

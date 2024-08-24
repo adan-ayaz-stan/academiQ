@@ -67,6 +67,7 @@ export default function FilterSidebar() {
             return (
               <Button
                 variant={"ghost"}
+                key={str}
                 className="relative group bg-white p-4 h-fit"
                 asChild
               >
@@ -89,6 +90,7 @@ export default function FilterSidebar() {
             return (
               <Button
                 variant={"ghost"}
+                key={str}
                 className="relative group bg-white p-4 h-fit"
                 asChild
               >

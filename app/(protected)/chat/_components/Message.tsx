@@ -101,7 +101,7 @@ export default function Message({
               return <li className="pl-2 md:border-l-2" {...props} />;
             },
           }}
-          className={cn("text-lg flex-1", role == "user" && "text-black")}
+          className={cn("text-sm flex-1", role == "user" && "text-black")}
         >
           {message}
         </Markdown>

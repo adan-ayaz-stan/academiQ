@@ -3,6 +3,7 @@ import { Urbanist } from "next/font/google";
 import "./global.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import Providers from "./providers";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "Hono | nextjs",
@@ -26,6 +27,7 @@ export default function RootLayout({
     >
       <Providers>
         <ClerkProvider>
+          <Toaster />
           <body>{children}</body>
         </ClerkProvider>
       </Providers>

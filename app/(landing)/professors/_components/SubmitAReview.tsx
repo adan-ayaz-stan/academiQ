@@ -24,6 +24,14 @@ import AsyncSelect from "react-select/async";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { TProfessor } from "@/lib/db/schema/professors";
+import {
+  createProfessor,
+  getProfessorByName,
+} from "@/server/actions/professors.actions";
+import { toast } from "sonner";
+import { createReview } from "@/server/actions/reviews.actions";
+import { useQueryClient } from "@tanstack/react-query";
+import ky from "ky";
 
 const formSchema = z.object({
   is_scrape: z
@@ -32,6 +40,7 @@ const formSchema = z.object({
     .optional(),
   scrape_link: z.string().optional(),
   professor: z.object({
+    id: z.string().optional(),
     name: z.string(),
     college: z.string(),
     department: z
@@ -52,6 +61,7 @@ const formSchema = z.object({
 });
 
 type TSearchOption = Omit<TProfessor, "subjects" | "tags"> & {
+  id: string;
   label: string;
   value: string;
   img?: string;
@@ -59,34 +69,22 @@ type TSearchOption = Omit<TProfessor, "subjects" | "tags"> & {
   tags: string[];
 };
 
-export default function SubmitAReview() {
+export default function SubmitAReview({
+  onSubmitReview,
+}: {
+  onSubmitReview?: () => void;
+}) {
+  const queryClient = useQueryClient();
+
   const [activeTab, setActiveTab] = useState<
     "step-1" | "step-2" | "step-3" | "step-4" | "step-5"
   >("step-1");
 
   const promiseOptions = (inputValue: string) =>
-    new Promise<TSearchOption[]>((resolve) => {
-      setTimeout(() => {
-        if (inputValue === "") {
-          resolve([]);
-        }
-
-        resolve([
-          {
-            label: inputValue,
-            value: inputValue,
-            name: "Professor Moriarty",
-            college: "University of California, Berkeley",
-            department: "Computer Science",
-            subjects: [
-              "Artificial Intelligence",
-              "Machine Learning",
-              "Computer Science",
-            ],
-            tags: ["AI", "Machine Learning", "Computer Science"],
-          },
-        ]);
-      }, 1000);
+    new Promise<TSearchOption[]>(async (resolve) => {
+      //
+      const professor = await getProfessorByName(inputValue);
+      resolve(professor.map((p) => ({ ...p, label: p.name, value: p.name })));
     });
 
   // 1. Define your form.
@@ -99,13 +97,48 @@ export default function SubmitAReview() {
   });
 
   // 2. Define a submit handler.
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     // Do something with the form values.
     // ✅ This will be type-safe and validated.
 
-    // Create Embeddings Here
+    try {
+      if (values.professor.id) {
+        toast.loading("Creating Review...", { id: "create" });
+        await createReview(values.professor.id, {
+          title: values.review,
+          rating: values.rating,
+          content: values.review,
+        });
 
-    console.log(values);
+        toast.success("Review Created", { id: "create" });
+        await queryClient.invalidateQueries({ queryKey: ["professor"] });
+        return;
+      }
+
+      toast.loading("Creating Professor...", { id: "create" });
+      const professor = await createProfessor({
+        name: values.professor.name,
+        college: values.professor.college,
+        department: values.professor.department,
+        subjects: values.professor.subjects,
+        tags: [],
+        rating: 0,
+        totalReviews: 0,
+      });
+
+      toast.loading("Creating Review...", { id: "create" });
+      await createReview(professor.id, {
+        title: values.review,
+        rating: values.rating,
+        content: values.review,
+      });
+
+      toast.success("Review Created", { id: "create" });
+      onSubmitReview?.();
+      await queryClient.invalidateQueries({ queryKey: ["professor"] });
+    } catch (err) {
+      toast.error("Failed to Create Review", { id: "create" });
+    }
   }
 
   function onScrapingChoice(choice: boolean) {
@@ -129,12 +162,34 @@ export default function SubmitAReview() {
       setActiveTab("step-3");
 
       //   Scrape here
+      try {
+        toast.loading("Scraping...", { id: "scrape" });
+        const response = await ky.post("/api/scrape", { json: { url: link } });
+        const data: {
+          name: string;
+          college: string;
+          department: string;
+          subjects: string[];
+        } = await response.json();
 
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+        //   Set form professor field to selected value
+        form.setValue("professor", {
+          id: "",
+          name: data.name,
+          college: data.college,
+          // @ts-ignore
+          department: { label: data.department, value: data.department },
+          // @ts-ignore
+          subjects: data.subjects.map((s) => ({ label: s, value: s })),
+        });
+
+        toast.success("Scraped Successfully", { id: "scrape" });
+      } catch (err) {
+        toast.error("Failed to parse correctly!", { id: "scrape" });
+      }
+      setActiveTab("step-4");
 
       //   Proceed to step 4
-
-      setActiveTab("step-4");
     } else {
       form.setError("scrape_link", { message: "Invalid link" });
     }
@@ -214,9 +269,14 @@ export default function SubmitAReview() {
                           onClick={() => {
                             // Set form professor field to selected value
                             form.setValue("professor", {
+                              id: props.data.id,
                               name: props.data.name,
                               college: props.data.college,
-                              department: props.data.department,
+                              // @ts-ignore
+                              department: {
+                                label: props.data.department,
+                                value: props.data.department,
+                              },
                               // @ts-ignore
                               subjects: props.data.subjects.map((s) => ({
                                 label: s,
@@ -327,7 +387,7 @@ export default function SubmitAReview() {
               className="animate-in fade-in-0 duration-1000"
             >
               <div className="min-h-[50vh] flex flex-col gap-6 justify-center">
-                <h2>Enter link to professor's page</h2>
+                <h2>Enter link to professor&apos;s page</h2>
                 <FormField
                   control={form.control}
                   name="scrape_link"
@@ -536,8 +596,9 @@ export default function SubmitAReview() {
                     <FormLabel>Your Review</FormLabel>
                     <FormControl>
                       <Textarea
+                        rows={7}
                         placeholder="Tell us a little bit about yourself and your experience with the professor..."
-                        className="resize-none"
+                        className="resize-none scrollbar-thin scrollbar-track-transparent scrollbar-thumb-scampi-500 scrollbar-corner-scampi-500"
                         {...field}
                       />
                     </FormControl>
@@ -572,6 +633,9 @@ export default function SubmitAReview() {
 
               <Button
                 type="submit"
+                onClick={() => {
+                  console.log(form.formState.errors);
+                }}
                 className="w-fit ml-auto px-8 pointer-events-auto"
               >
                 Submit Review

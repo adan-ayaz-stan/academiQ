@@ -1,7 +1,7 @@
 "use server";
 
 import {
-  NewResourceParams,
+  TResource,
   insertResourceSchema,
   resources,
 } from "@/lib/db/schema/resources";
@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 import { generateEmbeddings } from "@/lib/ai/embedding";
 import { embeddings as embeddingsTable } from "@/lib/db/schema/embeddings";
 
-export const createResource = async (input: NewResourceParams) => {
+export const createResource = async (input: TResource) => {
   try {
     const { content } = insertResourceSchema.parse(input);
 

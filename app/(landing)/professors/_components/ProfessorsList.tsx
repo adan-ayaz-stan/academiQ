@@ -19,43 +19,65 @@ import {
   DotSquare,
   EllipsisVertical,
   Grid,
+  Loader2,
   Search,
   Stars,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import ProfessorProfile from "./ProfessorProfile";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import SubmitAReview from "./SubmitAReview";
-
-const list: {
-  name: string;
-  college: string;
-  collegeIcon?: string;
-  department: string;
-  subjects: string[];
-  tags: string[];
-  rating: number;
-  reviewCount: number;
-}[] = [
-  {
-    name: "Professor Moriarty",
-    college: "University of Pennsylvania",
-    collegeIcon: "/au-logo.png",
-    department: "Computer Science",
-    subjects: ["Computer Science"],
-    tags: ["AI", "Machine Learning"],
-    rating: 4.5,
-    reviewCount: 10,
-  },
-];
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { seed } from "@/lib/seed";
+import { toast } from "sonner";
+import { getProfessors } from "@/server/actions/professors.actions";
+import Fuse from "fuse.js";
 
 export default function ProfessorsList() {
   const [rating, setRating] = useState<number | null>(null);
-  const [sortBy, setSortBy] = useState<"ttb" | "btt" | null>(null);
+  const [sortBy, setSortBy] = useState<"asc" | "desc" | null>(null);
+
+  const dialogCloseRef = useRef<HTMLButtonElement>(null);
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const {
+    data: professors,
+    isLoading,
+    isSuccess,
+  } = useQuery({
+    queryKey: ["professor", "all", rating, sortBy],
+    queryFn: () => getProfessors(rating, sortBy),
+  });
+
+  const results = new Fuse(professors ?? [], {
+    shouldSort: true,
+    keys: ["name", "college"],
+  }).search(searchQuery);
+
+  const { mutate: create, isPending } = useMutation({
+    mutationKey: ["professor", "create"],
+    mutationFn: seed,
+    onMutate: () => {
+      toast.loading("Creating Professors...", { id: "create" });
+    },
+    onSuccess: () => {
+      toast.success("Professors Created", { id: "create" });
+    },
+    onError: () => {
+      toast.error("Failed to Create Professors", { id: "create" });
+    },
+  });
 
   return (
     <div className="pl-96">
       <div className="pl-4">
+        {!isPending && <Button onClick={() => create()}>Seed</Button>}
         <div className="w-full flex flex-row gap-4 items-center justify-end py-4 rounded-sm">
           {/* input box */}
           <div className="relative mr-auto">
@@ -63,6 +85,8 @@ export default function ProfessorsList() {
             <Input
               placeholder="i.e. Professor Moriarty"
               className="rounded-sm pr-12"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
@@ -72,8 +96,8 @@ export default function ProfessorsList() {
               <Button variant={sortBy ? "default" : "outline"}>
                 {sortBy ? (
                   <>
-                    {sortBy == "ttb" ? "Ascending" : "Descending"}
-                    {sortBy == "ttb" ? (
+                    {sortBy == "asc" ? "Ascending" : "Descending"}
+                    {sortBy == "asc" ? (
                       <ArrowDown className="ml-2 h-4 w-4" />
                     ) : (
                       <ArrowDown className="ml-2 h-4 w-4 rotate-180" />
@@ -89,12 +113,12 @@ export default function ProfessorsList() {
               <DropdownMenuSeparator />
               <DropdownMenuRadioGroup
                 value={sortBy ?? undefined}
-                onValueChange={(value) => setSortBy(value as "ttb" | "btt")}
+                onValueChange={(value) => setSortBy(value as "asc" | "desc")}
               >
-                <DropdownMenuRadioItem value="ttb">
+                <DropdownMenuRadioItem value="asc">
                   Ascending
                 </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="btt">
+                <DropdownMenuRadioItem value="desc">
                   Descending
                 </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
@@ -169,8 +193,13 @@ export default function ProfessorsList() {
                     <Button className="w-full">Submit a Review</Button>
                   </DialogTrigger>
                   <DialogContent>
+                    <DialogClose ref={dialogCloseRef} />
                     <div className="relative">
-                      <SubmitAReview />
+                      <SubmitAReview
+                        onSubmitReview={() => {
+                          dialogCloseRef.current?.click();
+                        }}
+                      />
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -181,12 +210,36 @@ export default function ProfessorsList() {
 
         {/* Professor's listed down here */}
         <div className="mt-4 flex flex-row flex-wrap gap-8">
-          {list.map((item) => (
-            <ProfessorProfile
-              key={item.name + item.college + item.department}
-              data={item}
-            />
-          ))}
+          {isLoading && (
+            <div className="w-full">
+              <Loader2 className="mx-auto mt-12 h-12 w-12 animate-spin text-scampi-900" />
+            </div>
+          )}
+          {isSuccess &&
+            !searchQuery &&
+            professors.map((item) => (
+              <ProfessorProfile
+                key={item.name + item.college + item.department}
+                // @ts-ignore
+                data={item}
+              />
+            ))}
+
+          {isSuccess &&
+            searchQuery &&
+            results.map((item) => (
+              <ProfessorProfile
+                key={item.score + item.item.name + item.item.department}
+                // @ts-ignore
+                data={item.item}
+              />
+            ))}
+
+          {isSuccess && !professors.length && (
+            <div className="w-full">
+              <p className="text-center">No professors found</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

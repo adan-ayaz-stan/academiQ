@@ -20,15 +20,15 @@ export default function ChatMessages() {
       )}
 
       {/*  */}
-      {/* {messages.map((message) => (
+      {messages.map((message) => (
         <Message
           key={message.id}
           role={message.role}
           message={message.content}
           toolInvocations={message.toolInvocations}
         />
-      ))} */}
-      {[
+      ))}
+      {/* {[
         {
           id: 1,
           role: "user",
@@ -48,7 +48,7 @@ export default function ChatMessages() {
           message={message.content}
           toolInvocations={message.toolInvocations}
         />
-      ))}
+      ))} */}
     </div>
   );
 }

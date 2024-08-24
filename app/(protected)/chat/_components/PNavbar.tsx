@@ -49,11 +49,16 @@ export default function Navbar() {
           </Button>
 
           {/*  */}
-          <Link href={"/chat"}>
-            <Button className="font-semibold hidden md:block h-fit">
-              Chat
-            </Button>
-          </Link>
+          <Button asChild className="font-semibold hidden md:block h-fit">
+            <Link href={"/chat"}>Chat</Link>
+          </Button>
+          <Button
+            variant={"link"}
+            className="font-semibold hidden md:block h-fit"
+            asChild
+          >
+            <Link href={"/professors"}>Professors</Link>
+          </Button>
         </div>
 
         <Button asChild>

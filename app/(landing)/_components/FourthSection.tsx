@@ -7,7 +7,7 @@ export default function FourthSection() {
         </h1>
 
         <h3 className="text-center max-w-3xl font-normal">
-          Dive into a wealth of information about our university's renowned
+          Dive into a wealth of information about our university&apos;s renowned
           faculty members. Browse professor profiles, read verified student
           reviews, and follow likability trends to make informed decisions about
           your educational journey.
