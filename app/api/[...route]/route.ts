@@ -3,7 +3,7 @@ import { handle } from "hono/vercel";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import ky from "ky";
-import { formatString, formatStringIntoChunks } from "@/lib/utils";
+import { formatString, stringToChunks } from "@/lib/utils";
 const cheerio = require("cheerio"); // 1
 
 export const runtime = "edge";
@@ -65,7 +65,7 @@ app.post(
       })
       .filter(Boolean);
 
-    const chunks = formatStringIntoChunks(bodyText);
+    const chunks = stringToChunks(bodyText);
 
     console.log(
       `Generated ${chunks.length} chunks for a total of ${bodyText.length} characters`

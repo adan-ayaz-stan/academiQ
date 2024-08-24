@@ -33,4 +33,4 @@ export const insertProfessorSchema = createSelectSchema(professors)
     updatedAt: true,
   });
 
-export type NewProfessorParams = z.infer<typeof insertProfessorSchema>;
+export type TProfessor = z.infer<typeof insertProfessorSchema>;
