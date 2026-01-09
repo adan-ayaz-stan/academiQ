@@ -1,132 +1,169 @@
-# AcademiQ - Professor Review & Discovery Platform
+# AcademiQ
 
-## Project Overview
+> An AI-powered professor discovery platform using RAG (Retrieval-Augmented Generation) for semantic search and personalized recommendations, enabling students to make data-driven educational decisions.
 
-**AcademiQ** is an intelligent professor rating and discovery platform that leverages **AI-powered recommendations** to help students make informed educational decisions **because** traditional professor selection often lacks comprehensive, easily accessible information **which results in** students being able to discover the best-fit educators through data-driven insights, peer reviews, and intelligent matching algorithms.
+## 🚀 Tech Stack & Engineering Decisions
 
-## What It Does
+**Frontend Framework**
+- **Next.js 14 (App Router)** - Server-side rendering with React Server Components for optimal performance. Route groups (`(auth)`, `(protected)`, `(landing)`) enforce clear separation of concerns.
+- **TypeScript** - Full type safety across the stack with strict mode enabled.
 
-AcademiQ serves as a comprehensive platform where students can:
+**State & Data Management**
+- **TanStack Query** - Server state synchronization with automatic caching and invalidation. Used in `ProfessorsList.tsx` to handle optimistic UI updates for professor creation.
+- **React Hook Form + Zod** - Form validation with type-safe schemas. `zodResolver` ensures runtime validation matches TypeScript types.
 
-- **Discover Professors**: Browse detailed professor profiles with ratings, subjects, departments, and college affiliations
-- **Submit Reviews**: Share experiences and rate professors to help future students
-- **AI-Powered Chat**: Interact with an intelligent assistant that provides personalized professor recommendations based on RAG (Retrieval-Augmented Generation) technology
-- **Smart Data Collection**: Automatically extract professor information from web sources using AI-powered scraping
-- **Advanced Filtering**: Find professors by rating, department, subject, and college with sophisticated search capabilities
+**Database & ORM**
+- **PostgreSQL (Neon Serverless)** - Serverless Postgres with built-in connection pooling via `@neondatabase/serverless`.
+- **Drizzle ORM** - Type-safe SQL query builder. Schema definitions in `/lib/db/schema` auto-generate TypeScript types using `drizzle-zod`.
+- **pgvector Extension** - Stores 1024-dimensional Mistral embeddings with HNSW indexing for sub-50ms vector similarity search.
 
-## Tech Stack
+**AI & Embeddings**
+- **Mistral AI** - `mistral-embed` model generates semantic embeddings; `mistral-large-latest` powers the chat assistant with tool-calling capabilities.
+- **RAG Implementation** - Cosine similarity search (threshold > 0.5) retrieves relevant professor context before LLM inference. See `lib/ai/embedding.ts`.
+- **Streaming Responses** - Uses Vercel AI SDK's `streamText` for token-by-token UI updates, reducing perceived latency.
 
-### Frontend
+**Authentication**
+- **Clerk** - Middleware-protected routes with automatic session management. Server actions verify `auth().userId` before database mutations.
 
-- **Next.js 14** - React framework with App Router
-- **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first styling
-- **Framer Motion** - Smooth animations and transitions
-- **Radix UI** - Accessible component primitives
-- **React Hook Form** - Form state management with Zod validation
-- **TanStack Query** - Server state management
+**UI/UX**
+- **Shadcn/ui + Radix UI** - Accessible primitives with custom styling. Accordion, Dialog, and Select components follow WAI-ARIA patterns.
+- **Framer Motion** - Declarative animations for page transitions and interactive elements.
+- **Tailwind CSS** - Utility-first styling with custom theme extensions in `tailwind.config.ts`.
 
-### Backend & Database
+**Environment Validation**
+- **@t3-oss/env-nextjs** - Runtime environment variable validation using Zod schemas. Build fails if required env vars are missing (see `lib/env.mjs`).
 
-- **PostgreSQL** - Primary database with Neon serverless hosting
-- **Drizzle ORM** - Type-safe database toolkit
-- **Drizzle Kit** - Database migrations and introspection
+## ✨ Key Features
 
-### AI & Machine Learning
+- **AI-Powered Chat Assistant** - Conversational interface with RAG-enhanced responses. Automatically summarizes reviews and recommends professors based on semantic similarity.
+- **Intelligent Web Scraping** - AI-driven content extraction from professor profile URLs. Mistral parses unstructured HTML into structured data (name, department, subjects).
+- **Vector Semantic Search** - Query professors by natural language. Embedding similarity retrieves contextually relevant results beyond keyword matching.
+- **Advanced Filtering** - Multi-dimensional search by rating, department, subject, and college with real-time updates.
+- **Review System** - Students submit ratings and reviews with cascade deletion (reviews auto-delete when professors are removed).
+- **Type-Safe API Layer** - Server actions enforce authentication and validation. All mutations return typed responses with Drizzle-generated schemas.
 
-- **Mistral AI** - Large language model for chat and content generation
-- **Vector Embeddings** - Semantic search and content similarity
-- **RAG (Retrieval-Augmented Generation)** - Context-aware AI responses
-- **AI SDK** - Streamlined AI integration
+## 🏗️ System Architecture
 
-### Authentication & Security
+### Data Flow
 
-- **Clerk** - User authentication and session management
+```mermaid
+graph TB
+    A[Client Request] --> B{Clerk Auth Middleware}
+    B -->|Authenticated| C[Next.js Server Actions]
+    B -->|Unauthenticated| D[Redirect to Sign-In]
+    C --> E[Drizzle ORM]
+    E --> F[(PostgreSQL + pgvector)]
+    C --> G[Mistral AI API]
+    G --> H[Generate Embeddings]
+    H --> F
+    F --> I[Vector Similarity Search]
+    I --> J[RAG Context]
+    J --> G
+    G --> K[Streaming Response]
+    K --> A
+```
 
-### Additional Tools
+### RAG Pipeline
 
-- **Cheerio** - Web scraping and HTML parsing
-- **Ky** - HTTP client for API requests
-- **React Markdown** - Markdown rendering with syntax highlighting
-- **Fuse.js** - Fuzzy search capabilities
+1. **Ingestion** - When professors are created, biographical data is chunked and embedded via `mistral-embed` (1024 dimensions).
+2. **Storage** - Embeddings stored in `embeddings` table with HNSW index for approximate nearest neighbor search.
+3. **Retrieval** - User queries are embedded and compared using cosine distance. Top 4 results with similarity > 0.5 are retrieved.
+4. **Generation** - Retrieved context is injected into the LLM prompt, grounding responses in factual data.
 
-## Technical Implementation
+### Tool-Calling Architecture
 
-### 1. **RAG-Powered AI Assistant**
+The chat assistant uses two tools defined in `/app/api/mistral/chat/route.ts`:
+- `addResource` - Stores user-provided professor data into the knowledge base.
+- `getInformation` - Queries the vector database for relevant context before responding.
 
-- Uses Mistral embeddings to create vector representations of professor data
-- Implements cosine similarity search for relevant content retrieval
-- Provides contextual responses about professors based on stored knowledge
+### Database Schema
 
-### 2. **Intelligent Web Scraping**
+- **professors** - Core entity with subjects (text array), tags (text array), and foreign key to colleges.
+- **reviews** - Linked to professors with cascade deletion.
+- **embeddings** - Stores chunked content with vector representations, indexed via `vector_cosine_ops`.
+- **resources** - Metadata for embedded content (referenced by `embeddings.resourceId`).
 
-- Automated professor data extraction from web pages
-- AI-powered content parsing to structure professor information
-- Integration with the main database for seamless data flow
+## 🔧 Setup & Installation
 
-### 3. **Advanced Search & Filtering**
+### Prerequisites
 
-- Multi-dimensional filtering by rating, department, and subjects
-- Fuzzy search implementation for flexible professor discovery
-- Real-time search with optimized database queries
+- Node.js 18+
+- PostgreSQL database with pgvector extension (Neon recommended)
+- Clerk account for authentication
+- Mistral AI API key
 
-### 4. **Vector Database Architecture**
+### Environment Variables
 
-- Embedding storage for semantic search capabilities
-- Efficient similarity computation using cosine distance
-- Chunked content processing for optimal retrieval
+Create a `.env` file in the root directory:
 
-### 5. **Real-time Chat Interface**
+```bash
+# Database
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
 
-- Streaming AI responses for better user experience
-- Tool-based architecture for dynamic functionality
-- Context-aware conversations with professor recommendation logic
+# Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+CLERK_WEBHOOK_SECRET=whsec_...
 
-### 6. **Type-Safe Development**
+# AI
+MISTRAL_API_KEY=your_mistral_api_key
 
-- End-to-end TypeScript implementation
-- Zod schema validation for forms and API routes
-- Drizzle ORM for type-safe database operations
+# Optional
+NODE_ENV=development
+```
 
-## Getting Started
+### Installation
 
 ```bash
 # Install dependencies
 npm install
 
-# Set up environment variables
-# Copy .env.example to .env and configure:
-# - DATABASE_URL (Neon PostgreSQL)
-# - CLERK_SECRET_KEY & NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-# - MISTRAL_API_KEY
+# Generate Drizzle migrations
+npm run db:generate
 
-# Run database migrations
+# Run migrations
 npm run db:migrate
 
 # Start development server
 npm run dev
 ```
 
-## Database Commands
+Access the application at `http://localhost:3000`.
+
+### Database Management
 
 ```bash
-# Generate migrations
-npm run db:generate
+# Push schema changes without migrations
+npm run db:push
 
-# Run migrations
-npm run db:migrate
-
-# Open Drizzle Studio
+# Open Drizzle Studio (visual database editor)
 npm run db:studio
 
-# Push schema changes
-npm run db:push
+# Rollback migrations
+npm run db:drop
 ```
 
-## Architecture Highlights
+## 🔮 Future Improvements / Known Issues
 
-- **Serverless-first**: Built for scalable deployment with Neon and Vercel
-- **AI-Native**: Deep integration of machine learning throughout the application
-- **Type-Safe**: Comprehensive TypeScript coverage from frontend to database
-- **Modern Stack**: Latest web technologies with performance optimization
-- **Accessible**: Built with accessibility-first component library (Radix UI)
+**Testing**
+- Add unit tests for server actions (Vitest + MSW recommended).
+- Implement E2E tests for critical user flows (Playwright).
+
+**Performance**
+- Implement React Server Components data fetching to reduce client-side JavaScript.
+- Add Redis caching layer for frequently accessed professor profiles.
+
+**Features**
+- Email notifications for new reviews via Clerk webhooks.
+- Professor verification system (badge for claimed profiles).
+- Comparative professor analytics dashboard.
+
+**Infrastructure**
+- Add API rate limiting to prevent abuse of scraping endpoint.
+- Implement error monitoring (Sentry integration).
+- Set up CI/CD pipeline with automated database migrations.
+
+**UI/UX**
+- Mobile responsive design improvements (current layout is desktop-optimized).
+- Dark mode persistence using cookies instead of localStorage.
+- Accessibility audit for keyboard navigation.
